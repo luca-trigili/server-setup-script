@@ -204,27 +204,34 @@ function hardenSSH() {
     local ssh_config="/etc/ssh/sshd_config"
 
     # Disable root login
-    sudo sed -i '/^#?PermitRootLogin/s/.*/PermitRootLogin no/' "$ssh_config"
+    sudo sed -re 's/^(\#?)(PermitRootLogin)([[:space:]]+)(.*)/PermitRootLogin no/' -i "$ssh_config"
 
     # Disable password auth
-    sudo sed -i '/^#?PasswordAuthentication/s/.*/PasswordAuthentication no/' "$ssh_config"
+    sudo sed -re 's/^(\#?)(PasswordAuthentication)([[:space:]]+)yes/\2\3no/' -i "$ssh_config"
 
-    # Only strong MAC
-    sudo bash -c "echo 'Ciphers aes256-ctr,aes192-ctr,aes128-ctr' >> $ssh_config"
-    sudo bash -c "echo 'MACs hmac-sha2-512,hmac-sha2-256' >> $ssh_config"
+    # Only strong MAC and algo
+    sudo sed -re '/^(\#?)(Ciphers)/d' -i "$ssh_config"
+    echo "Ciphers aes256-ctr,aes192-ctr,aes128-ctr" | sudo tee -a "$ssh_config" > /dev/null
 
-    # Only strong algo
-    sudo bash -c "echo 'KexAlgorithms curve25519-sha256@libssh.org' >> $ssh_config"
+    sudo sed -re '/^(\#?)(MACs)/d' -i "$ssh_config"
+    echo "MACs hmac-sha2-512,hmac-sha2-256" | sudo tee -a "$ssh_config" > /dev/null
+
+    sudo sed -re '/^(\#?)(KexAlgorithms)/d' -i "$ssh_config"
+    echo "KexAlgorithms curve25519-sha256@libssh.org" | sudo tee -a "$ssh_config" > /dev/null
 
     # Limit max sessions per user
-    sudo bash -c "echo 'MaxSessions 2' >> $ssh_config"
+    sudo sed -re '/^(\#?)(MaxSessions)/d' -i "$ssh_config"
+    echo "MaxSessions 2" | sudo tee -a "$ssh_config" > /dev/null
 
     # Enforce a 5m timeout for inactive sessions
-    sudo bash -c "echo 'ClientAliveInterval 300' >> $ssh_config"
-    sudo bash -c "echo 'ClientAliveCountMax 2' >> $ssh_config"
+    sudo sed -re '/^(\#?)(ClientAliveInterval)/d' -i "$ssh_config"
+    echo "ClientAliveInterval 300" | sudo tee -a "$ssh_config" > /dev/null
+
+    sudo sed -re '/^(\#?)(ClientAliveCountMax)/d' -i "$ssh_config"
+    echo "ClientAliveCountMax 2" | sudo tee -a "$ssh_config" > /dev/null
 
     # Change default SSH port
-    sudo sed -i '/^#?Port/s/.*/Port ${ssh_port}/' "$ssh_config"
+    sudo sed -re 's/^(\#?)(Port)([[:space:]]+)(.*)/Port '"${ssh_port}"'/' -i "$ssh_config"
 }
 
 # Enables EPEL for AlmaLinux
