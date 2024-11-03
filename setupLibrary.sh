@@ -365,4 +365,42 @@ function cleanupPackageCache() {
     fi
 }
 
+# Creates a swap file if not already present
+function createSwap() {
+    if [[ ! -f /swapfile ]]; then
+        local swapmem=$(($(getPhysicalMemory) * 2))
+        swapmem=$((swapmem > 4 ? 4 : swapmem))  # Limit to 4GB
+        fallocate -l "${swapmem}G" /swapfile
+        chmod 600 /swapfile
+        mkswap /swapfile
+        swapon /swapfile
+        echo "Swap file of ${swapmem}GB created."
+    else
+        echo "Swap file already exists."
+    fi
+}
+
+# Mounts the swap file by updating /etc/fstab
+function mountSwap() {
+    cp /etc/fstab /etc/fstab.bak
+    echo '/swapfile none swap sw 0 0' >> /etc/fstab
+}
+
+# Modify the swapfile settings
+function tweakSwapSettings() {
+    local swappiness=${1}
+    local vfs_cache_pressure=${2}
+    sysctl vm.swappiness="${swappiness}"
+    sysctl vm.vfs_cache_pressure="${vfs_cache_pressure}"
+}
+
+# Save the modified swap settings
+function saveSwapSettings() {
+    local swappiness=${1}
+    local vfs_cache_pressure=${2}
+    echo "vm.swappiness=${swappiness}" >> /etc/sysctl.conf
+    echo "vm.vfs_cache_pressure=${vfs_cache_pressure}" >> /etc/sysctl.conf
+}
+
+
 
