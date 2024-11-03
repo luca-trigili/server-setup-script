@@ -365,6 +365,13 @@ function cleanupPackageCache() {
     fi
 }
 
+# Gets the total physical memory in GB
+function getPhysicalMemory() {
+    local phymem
+    phymem=$(free -g | awk '/^Mem:/{print $2}')
+    echo $(( phymem > 0 ? phymem : 1 ))
+}
+
 # Creates a swap file if not already present
 function createSwap() {
     if [[ ! -f /swapfile ]]; then
