@@ -11,13 +11,6 @@ function log() {
     echo "[${level}] ${timestamp}: ${message}" | tee -a "${output_file}"
 }
 
-# Executes a command as a specific user
-function execAsUser() {
-    local username=${1}
-    local exec_command=${2}
-    sudo -u "${username}" -H bash -c "${exec_command}"
-}
-
 function validateSSHKey() {
     local sshKey="$1"
     if [[ ! "$sshKey" =~ ^ssh-(rsa|dss|ed25519|ecdsa) ]]; then
@@ -187,15 +180,19 @@ function addSSHKey() {
     local username=${1}
     local sshKey=${2}
     validateSSHKey "${sshKey}"
-    execAsUser "${username}" "mkdir -p ~/.ssh; chmod 700 ~/.ssh; touch ~/.ssh/authorized_keys" || {
-        log "ERROR" "Failed to create .ssh directory for user ${username}."
+    sudo -u "${username}" bash -c 'mkdir -p ~/.ssh && chmod 700 ~/.ssh && touch ~/.ssh/authorized_keys' || {
+        log "ERROR" "Failed to create .ssh directory or authorized_keys file for user ${username}."
         exit 1
     }
-    execAsUser "${username}" "echo \"${sshKey}\" | sudo tee -a ~/.ssh/authorized_keys" || {
+    echo "${sshKey}" | sudo -u "${username}" tee -a "/home/${username}/.ssh/authorized_keys" > /dev/null || {
         log "ERROR" "Failed to add SSH key for user ${username}."
         exit 1
     }
-    execAsUser "${username}" "chmod 600 ~/.ssh/authorized_keys"
+    sudo -u "${username}" chmod 600 "/home/${username}/.ssh/authorized_keys" || {
+        log "ERROR" "Failed to set permissions on authorized_keys for user ${username}."
+        exit 1
+    }
+    log "INFO" "SSH key successfully added for user ${username}."
 }
 
 # Hardening SSH
