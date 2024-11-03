@@ -300,13 +300,49 @@ function setTimezone() {
     log "INFO" "Timezone set to ${timezone}."
 }
 
-# Sets up automatic security updates
+# Configure daily automatic security updates for supported distributions
 function setupAutomaticSecurityUpdates() {
-    if [[ "$distro" == "ubuntu" ]]; then
+    # Configure for AlmaLinux
+    if [[ "$distro" == "almalinux" ]]; then
+        installPackageIfNeeded "dnf-automatic"
+        configureDnfAutomatic
+        systemctl enable --now dnf-automatic.timer
+        log "INFO" "Automatic security updates enabled for AlmaLinux."
+
+    # Configure for Ubuntu
+    elif [[ "$distro" == "ubuntu" ]]; then
         installPackageIfNeeded "unattended-upgrades"
-        dpkg-reconfigure --priority=low unattended-upgrades
+        configureUnattendedUpgrades
+        log "INFO" "Automatic security updates enabled for Ubuntu."
+
+    else
+        log "ERROR" "Unsupported OS for automatic updates."
     fi
 }
+
+# Configure dnf-automatic for AlmaLinux
+function configureDnfAutomatic() {
+    sed -i 's/^upgrade_type.*/upgrade_type = security/' /etc/dnf/automatic.conf
+    sed -i 's/^apply_updates.*/apply_updates = yes/' /etc/dnf/automatic.conf
+    sed -i 's/^random_sleep.*/random_sleep = 0/' /etc/dnf/automatic.conf
+}
+
+# Configure unattended-upgrades for Ubuntu
+function configureUnattendedUpgrades() {
+    dpkg-reconfigure --priority=low unattended-upgrades
+    {
+        echo 'APT::Periodic::Update-Package-Lists "1";'
+        echo 'APT::Periodic::Unattended-Upgrade "1";'
+    } > /etc/apt/apt.conf.d/20auto-upgrades
+
+    local distro_id=''
+    local distro_codename=''
+    distro_id=$(lsb_release -is)
+    distro_codename=$(lsb_release -cs)
+
+    echo "Unattended-Upgrade::Allowed-Origins {\"${distro_id}:${distro_codename}-security\";};" > /etc/apt/apt.conf.d/50unattended-upgrades
+}
+
 
 # Updates the system packages
 function updateSystem() {
